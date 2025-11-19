@@ -17,7 +17,7 @@ import LoginFigure3 from '../assets/login-figure-3.svg';
     },
     {
       figure: LoginFigure2,
-      title: "Smart Document Management for Smarter Accreditation",
+      title: "Smart Document Management for Enhanced Accreditation",
       subTitle: "Access. Upload. Predict. Streamline your accreditation journey with our University Document Management System."
    
    

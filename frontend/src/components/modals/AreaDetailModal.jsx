@@ -324,30 +324,118 @@ const AreaDetailModal = ({
                 />
               </div>
 
-              {/* Area Description */}
-              <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Area Details</h3>
-                <div className="space-y-2">
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Area Name:</span> {area.areaTitle || area.areaName}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Area Number:</span> {area.areaNum || 'N/A'}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Program Code:</span> {area.programCode}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Current Progress:</span> {area.progress || 0}%
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    <span className="font-medium">Total Deadlines:</span> {areaDeadlines.length}
-                  </p>
-                  {area.subareaName && (
-                    <p className="text-gray-600 dark:text-gray-300">
-                      <span className="font-medium">Subarea:</span> {area.subareaName}
-                    </p>
-                  )}
+              {/* Area Details - Comprehensive */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Left Column */}
+                <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 pb-3 border-b border-gray-300 dark:border-gray-600">Basic Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Area Number</p>
+                      <p className="text-gray-800 dark:text-gray-200 font-semibold">{area.areaNum || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Area Name (Short)</p>
+                      <p className="text-gray-800 dark:text-gray-200">{area.areaTitle || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Full Name</p>
+                      <p className="text-gray-800 dark:text-gray-200">{area.areaName || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Area ID</p>
+                      <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.areaID || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 pb-3 border-b border-gray-300 dark:border-gray-600">Program Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Program Code</p>
+                      <p className="text-gray-800 dark:text-gray-200 font-semibold">{area.programCode || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Program ID</p>
+                      <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.programID || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Current Progress</p>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{area.progress || 0}%</span>
+                      </div>
+                    </div>
+                    {area.rating && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Rating</p>
+                        <p className="text-gray-800 dark:text-gray-200">{area.rating.toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Subarea & Status Information */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Subarea Info */}
+                <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 pb-3 border-b border-gray-300 dark:border-gray-600">Subarea Information</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Subarea ID</p>
+                      <p className="text-gray-800 dark:text-gray-200">{area.subareaID || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Subarea Name</p>
+                      <p className="text-gray-800 dark:text-gray-200">{area.subareaName || 'Not assigned'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status & Archive Info */}
+                <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 pb-3 border-b border-gray-300 dark:border-gray-600">Status</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Archived</p>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        area.archived 
+                          ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400' 
+                          : 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                      }`}>
+                        {area.archived ? 'Archived' : 'Active'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</p>
+                      <ProgressStatus progress={area.progress || 0} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Template & Reference Info */}
+              <div className="bg-gray-100 inset-shadow-sm inset-shadow-gray-500 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 pb-3 border-b border-gray-300 dark:border-gray-600">Technical Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Template ID</p>
+                    <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.templateID || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Applied Template ID</p>
+                    <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.appliedTemplateID || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Area Blueprint ID</p>
+                    <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.areaBlueprintID || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Institute ID</p>
+                    <p className="text-gray-800 dark:text-gray-200 font-mono text-sm">{area.instID || '-'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -366,15 +454,20 @@ const AreaDetailModal = ({
                     ></div>
                   </div>
                   
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Total Deadlines</span>
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {areaDeadlines.length}
+                    </span>
+                  </div>
+                  
                   {upcomingDeadlines.length > 0 && (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Upcoming Deadlines</span>
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                          {upcomingDeadlines.length}
-                        </span>
-                      </div>
-                    </>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Upcoming Deadlines</span>
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                        {upcomingDeadlines.length}
+                      </span>
+                    </div>
                   )}
                   
                   {overdueDeadlines.length > 0 && (

@@ -1,16 +1,18 @@
-import{faCalendarPlus, faAngleRight, faGraduationCap, faBullhorn, faPlus, faGears, faHourglassHalf, faCalendarDays, faTrash} from '@fortawesome/free-solid-svg-icons'
-import {Link, Navigate, Route, useNavigate} from 'react-router-dom'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useEffect, useState } from 'react'
-import { apiGet, apiPost, apiDelete, API_URL } from '../utils/api_utils'
-import toast from 'react-hot-toast'
-import { Toaster } from 'react-hot-toast'
-import { getCurrentUser, adminHelper } from '../utils/auth_utils'
-import AnnouncementModal from '../components/modals/AnnouncementModal'
-import StatusModal from '../components/modals/StatusModal'
-import FullCalendar from '@fullcalendar/react'
-import dayGridPlugin from '@fullcalendar/daygrid'
-import CircularProgressBar from '../components/CircularProgressBar'
+import{faCalendarPlus, faAngleRight, faChartArea, faCalendarWeek, faGraduationCap, faBullhorn, faPlus, faGears, faHourglassHalf, faCalendarDays, faTrash} from '@fortawesome/free-solid-svg-icons'
+import {Link, Navigate, Route, useNavigate} from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useEffect, useState } from 'react';
+import { apiGet, apiPost, apiDelete, API_URL, apiPostForm } from '../utils/api_utils';
+import toast from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
+import { getCurrentUser, adminHelper } from '../utils/auth_utils';
+import AnnouncementModal from '../components/modals/AnnouncementModal';
+import StatusModal from '../components/modals/StatusModal';
+import EventModal from '../components/modals/EventModal';
+import DeadlineModal from '../components/modals/DeadlineModal';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import CircularProgressBar from '../components/CircularProgressBar';
 
 
 const Dashboard = () => {
@@ -19,6 +21,10 @@ const [statusMessage, setStatusMessage] = useState("");
 const [statusType, setStatusType] = useState("success");
 const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+const [showCreateDeadline, setShowCreateDeadline] = useState(false);
+const [selectedDeadline, setSelectedDeadline] = useState(null);
+const [selectedEvent, setSelectedEvent] = useState(null);
 
 const [showAnnounceModal, setShowAnnounceModal] = useState(false);
 const [announcements, setAnnouncements] = useState([]);
@@ -248,39 +254,39 @@ const [selectedAreaOption, setSelectedAreaOption] = useState("")
 
 // Creation of deadline
 const handleCreateDeadline = async (e) => {
-	e.preventDefault()
-	if (!isAdmin || !user.isCoAdmin) return 
-	const formData = new FormData()
-	formData.append("program", program)
-	formData.append("area", selectedArea)
-	formData.append("criteriaID", criteria) // Add this line to include criteria ID
-	formData.append("due_date", dueDate)
-	formData.append("content", content)
-	try{
-		//create deadline api
-		const res = await apiPost('/api/deadline', formData, {withCredentials: true}) 
-		setStatusMessage(res.data.message)
-		setShowStatusModal(true)
-		setStatusType("success")
-		setSelectedArea("")
-		setProgram("")
-		setContent("")
-		setCriteria("")
-		setDueDate("")
-		// refetch deadline data
-		const deadlineRes = await apiGet("api/deadlines", {withCredentials: true})
-		Array.isArray(deadlineRes.data.deadline) ? setDeadLines(deadlineRes.data.deadline) : setDeadLines([])  
-		// refetch event data
-		const eventRes = await apiGet("/api/events", {withCredentials: true})
-		Array.isArray(eventRes.data) ? setEvent(eventRes.data) : setEvent([])
-	}
-	catch(err) {
-		setStatusMessage("Server error. Please try again")
-		setShowStatusModal(true);
-		setStatusType("error")
-		console.log(err.res?.data || err.message)
-	}
-} 
+    e.preventDefault()
+    if (!isAdmin && !user.isCoAdmin) return 
+    const formData = new FormData()
+    formData.append("program", program)
+    formData.append("area", selectedAreaOption)  // ✅ Changed from selectedArea    
+    formData.append("due_date", dueDate)
+    formData.append("content", content)
+    try{
+        //create deadline api
+        const res = await apiPostForm('/api/deadline', formData, {withCredentials: true}) 
+        setStatusMessage(res.data.message)
+        setShowStatusModal(true)
+        setStatusType("success")
+        setSelectedAreaOption("")
+        setProgram("")
+        setContent("")        
+        setDueDate("")
+
+		setShowCreateDeadline(false)
+        // refetch deadline data
+        const deadlineRes = await apiGet("api/deadlines", {withCredentials: true})
+        Array.isArray(deadlineRes.deadline) ? setDeadLines(deadlineRes.deadline) : setDeadLines([])  
+        // refetch event data
+        const eventRes = await apiGet("/api/events", {withCredentials: true})
+        Array.isArray(eventRes.data) ? setEvent(eventRes.data) : setEvent([])
+    }
+    catch(err) {
+        setStatusMessage("Server error. Please try again");
+        setShowStatusModal(true);
+        setStatusType("error");
+        console.error(err.res?.data || err.message);
+    }
+}
 
 // Fetch deadlines
 const [deadLines, setDeadLines] = useState([])
@@ -321,73 +327,36 @@ const handleCloseModal = () =>{setSelectedEvent(null); setShowEventModal(false)}
 
 // View deadline
 const [showDeadline, setShowDeadline] = useState(false)
-const handleViewDeadline = (selectedDeadline) => {    
-	const criteriaItem = criteriaOption.find(c => c.criteriaID === selectedDeadline.criteriaID)
-	const criteriaName = criteriaItem ? criteriaItem.criteriaName : 'N/A'
-	setSelectedDeadline({
-		id: selectedDeadline.deadlineID,
-		programName: selectedDeadline.programName,
-		programCode: selectedDeadline.programCode,
-		color: selectedDeadline.programColor,
-		criteriaName: criteriaName,
-		areaName: selectedDeadline.areaName,
-		date: selectedDeadline.due_date,
-		content: selectedDeadline.content
-	})
-	setShowDeadline(true)
+const handleViewDeadline = (selectedDeadline) => {
+    setSelectedDeadline({
+        id: selectedDeadline.deadlineID,
+        programName: selectedDeadline.programName,
+        programCode: selectedDeadline.programCode,
+        color: selectedDeadline.programColor,
+        criteria: selectedDeadline.criteria || [],
+        areaName: selectedDeadline.areaName,
+        date: selectedDeadline.due_date,
+        content: selectedDeadline.content
+    });
+    setShowDeadline(true);
 }
+
 const handleCloseDeadline = () =>{setSelectedDeadline(null); setShowDeadline(false)}
 
 const [areaProgressList, setAreaProgressList] = useState([]) // displays the area in tasks
 const uniqueAreas = areaProgressList.filter((area, index, self) => index === self.findIndex(a => a.areaID === area.areaID))
 
 return (
-	<>
-	{/* Container */}
-	<div className="relative w-full p-5 border bg-neutral-200 border-neutral-300 text-neutral-800 rounded-[20px] inset-shadow-sm inset-shadow-gray-400 dark:bg-gray-900 dark:shadow-sm dark:shadow-zuccini-900">
-		{/* Area Progress */}
-		<h1 className="mx-3 mb-3 text-xl font-semibold transition-all duration-500 dark:text-white">Area Progress</h1>
-		<section className="relative grid grid-cols-3 gap-2 p-3 min-h-[220px] text-neutral-800 border-1 border-gray-400 rounded-lg shadow-2xl overflow-hidden dark:bg-gray-950/50 dark:shadow-md dark:shadow-zuccini-900">
-			{/* Areas */}
-			{areaProgressList && areaProgressList.length > 0 ? (
-			  <>
-			  	{uniqueAreas.slice(0,3).map((area) => (                
-					<div key={area.areaID}  className="relative mr-4 min-w-[300px] h-[210px] border-neutral-400 dark:border-neutral-800 border rounded-lg shadow-xl dark:shadow-sm dark:shadow-zuccini-700 overflow-hidden transition-all duration-500 hover:scale-105 cursor-pointer">
-						<div  className='h-[50%] bg-zuccini-600 dark:bg-zuccini-800'> 
-							<div  className='absolute px-5 font-light border border-neutral-400 top-2 right-2 bg-neutral-200 rounded-xl dark:bg-gray-900 dark:text-white'>{area.programCode}</div>
-							<CircularProgressBar progress={area.progress} circleWidth="75" positionX={"left-3"} positionY={"top-17"} placement={`absolute top-17 left-3`}/>           
-						</div>      
-						<div className='text-right h-[50%] p-3 bg-neutral-200 border-t-1 transition-all duration-500  dark:bg-gray-900 dark:text-white dark:border-t-neutral-600'>
-							<h1 className='mb-4 text-2xl font-semibold text-wrap'>{area.areaNum}</h1>
-							<h2 className='text-lg truncate'>{area.areaTitle}</h2>
-						</div>
-					</div> 
-			  	))}
-				<div onClick={() => navigate('/Progress')} className='absolute right-0 col-start-3 flex items-center justify-center min-w-[275px] h-full overflow-hidden opacity-90 transition-all duration-500 hover:min-w-[278px] hover:opacity-95 hover:scale-110 bg-gradient-to-r from-transparent via-neutral-800 to-neutral-900 dark:bg-gradient-to-r dark:from-transparent dark:via-gray-800 dark:to-gray-900 cursor-pointer' >
-					<h1 className='z-10 text-xl font-semibold text-neutral-200'>View All</h1>
-				</div>
-			  	</>        
-		 	) : (<p className="col-span-3 m-auto text-lg text-center text-gray-500 font-extralight">No areas found.</p>)}
-		</section>
-	</div>
-	
-
-	{/* shows status when creating deadline */}
-	{showStatusModal && (
-		<StatusModal message={statusMessage} type={statusType} showModal={showStatusModal} onClick={()=>setShowStatusModal(false)} />
-	)}
-
-	<Toaster />
-	{showStatusModal && (<StatusModal message={statusMessage} type={statusType} showModal={showStatusModal} onClick={()=>setShowStatusModal(false)} />)} 
-
-	{/* Dashboard links */}
-	<section className='grid grid-rows-[auto_1fr] gap-1 mt-20 lg:mt-8 lg:grid-cols-4 lg:grid-rows-1'>   
+	<>	
+	{/* Dashboard links */}	
+	<section className='grid grid-rows-[auto_1fr] gap-1 mt-20 lg:mt-8 lg:grid-cols-2 lg:grid-rows-1'>   
 		<DashboardLinks icon={faGraduationCap} text="Programs" page="Programs" count={count?.programs || 0} loading={countLoading}/>            
-		<DashboardLinks icon={faCalendarDays} text="Deadlines" page="Tasks" count={count?.deadlines || 0} loading={countLoading}/>            
+		<DashboardLinks icon={faCalendarDays} text="Deadlines" page="Dashboard" count={count?.deadlines || 0} loading={countLoading}/>            
 	</section>
+			
 
 	{/* Announcements */}
-	<section className={` relative mt-4 mb-8 p-3 md:p-5 text-neutral-800 border-1 dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>
+	<section className={`relative mt-4 mb-8 p-3 md:p-5 text-neutral-800 border-1 dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>
 		<div className='flex flex-row items-center'>
 			<FontAwesomeIcon icon={faBullhorn} className="p-2 dark:text-white" />
 			<h2 className="mb-1 font-semibold lg:mb-4 text-md lg:text-xl text-neutral-800 dark:text-white">Announcements</h2>
@@ -440,10 +409,248 @@ return (
 
 	{showAnnounceModal && (<AnnouncementModal setShowModal={setShowAnnounceModal} onCreate={handleCreateAnnouncement}/>)}
 
-	{ isAdmin && (
-		<section  className='grid grid-cols-1 grid-rows-2 gap-4 mt-4 md:grid-cols-2 lg:grid-rows-1' >
+	{/* Area Progress */}
+		<section className="relative grid grid-cols-2 gap-3 p-1 min-h-[220px]">
+			<div className={`relative p-3 md:p-5 text-neutral-800 border-1 dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>
+				<div className="mb-4">
+					<h1 className="text-2xl font-semibold text-zuccini-700/80">
+						<FontAwesomeIcon icon={faChartArea} className="mr-2"/>
+						Area Progress
+					</h1>
+					<p className="text-sm text-gray-500 dark:text-gray-400">Overview of all area progress</p>
+				</div>
+				{/* Areas */}
+				{areaProgressList && areaProgressList.length > 0 ? (
+				<>
+					<div className="space-y-3 bg-gray-300 dark:bg-gray-950/50 dark:border-gray-950/50 p-2 border-5 border-gray-300 rounded-lg overflow-y-scroll max-h-[500px]">
+					{uniqueAreas.slice(0, 10).map((area) => (
+						<div
+						key={area.areaID} 
+						className="flex items-center animate-appear justify-between p-4 bg-gray-200 dark:bg-gray-900 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:border-zuccini-500 dark:hover:border-zuccini-600 transition-all duration-300 cursor-pointer group"
+						>
+						{/* Left side - Progress and Area Info */}
+						<div className="flex items-center gap-6">
+							<CircularProgressBar 
+							progress={area.progress || 0} 
+							circleWidth="60" 
+							placement="relative"
+							/>
+							
+							<div className="flex flex-col">
+							<div className="flex items-center gap-3 mb-1">
+								<h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+								{area.areaNum}
+								</h1>
+								<span className="px-3 py-1 text-sm font-light border border-neutral-400 dark:border-neutral-600 bg-neutral-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-300">
+								{area.programCode}
+								</span>
+							</div>
+							<h2 className="text-base text-gray-600 dark:text-gray-400">
+								{area.areaTitle}
+							</h2>
+							</div>
+						</div>
 
-			{/* Pending Documents */}
+						{/* Right side - Arrow indicator */}
+						<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+							<svg 
+							className="w-6 h-6 text-zuccini-600 dark:text-zuccini-500" 
+							fill="none" 
+							stroke="currentColor" 
+							viewBox="0 0 24 24"
+							>
+							<path 
+								strokeLinecap="round" 
+								strokeLinejoin="round" 
+								strokeWidth={2} 
+								d="M9 5l7 7-7 7" 
+							/>
+							</svg>
+						</div>
+						</div>
+					))}
+					</div>
+
+					{/* View All Button */}
+					<div 
+					onClick={() => navigate('/Progress')} 
+					className="mt-4 flex items-center justify-center p-4 bg-gradient-to-r from-zuccini-600 to-zuccini-700 dark:from-zuccini-700 dark:to-zuccini-800 rounded-lg hover:from-zuccini-700 hover:to-zuccini-800 dark:hover:from-zuccini-600 dark:hover:to-zuccini-700 transition-all duration-300 cursor-pointer group"
+					>
+					<h1 className="text-lg font-semibold text-white group-hover:tracking-wide transition-all duration-300">
+						View All Areas
+					</h1>
+					<svg 
+						className="w-5 h-5 ml-2 text-white transform group-hover:translate-x-1 transition-transform duration-300" 
+						fill="none" 
+						stroke="currentColor" 
+						viewBox="0 0 24 24"
+					>
+						<path 
+						strokeLinecap="round" 
+						strokeLinejoin="round" 
+						strokeWidth={2} 
+						d="M13 7l5 5m0 0l-5 5m5-5H6" 
+						/>
+					</svg>
+					</div>
+				</>			
+				) : (
+				<p className="text-lg text-center text-gray-500 font-extralight">
+					No areas found.
+				</p>
+				)}
+			</div>
+
+			{/* Deadlines */}
+			<div className={`relative p-3 md:p-5 text-neutral-800 border dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>     
+			{/* Header */}
+			<div className="mb-4">
+				<h1 className="text-2xl font-semibold text-zuccini-700/80">
+					<FontAwesomeIcon icon={faCalendarWeek} className="mr-2"/>
+					Deadlines
+				</h1>
+				<p className="text-sm text-gray-500 dark:text-gray-400">Upcoming tasks and due dates</p>
+			</div>
+
+			{/* Create Deadline Btn*/}
+			{(isAdmin || user.isCoAdmin) && (					
+			<button 
+				onClick={setShowCreateDeadline}
+				className='absolute top-5 right-5 flex items-center gap-2 px-5 py-2.5 font-semibold text-white bg-gradient-to-r from-zuccini-600 to-zuccini-700 dark:from-zuccini-700 dark:to-zuccini-800 hover:from-zuccini-700 hover:to-zuccini-800 dark:hover:from-zuccini-600 dark:hover:to-zuccini-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group'>
+				<svg 
+					className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" 
+					fill="none" 
+					stroke="currentColor" 
+					viewBox="0 0 24 24"
+				>
+					<path 
+						strokeLinecap="round" 
+						strokeLinejoin="round" 
+						strokeWidth={2} 
+						d="M12 4v16m8-8H4" 
+					/>
+				</svg>
+				<span className="group-hover:tracking-wide transition-all duration-300">
+					Create Deadline
+				</span>
+			</button>
+			)}
+
+			{/* Table Header */}
+			<div className='grid grid-cols-[2fr_3fr_1.5fr] gap-4 px-4 py-3 mb-2 text-sm font-semibold text-gray-600 dark:text-gray-400 border-b border-neutral-300 dark:border-gray-700'>
+				<h2>Program</h2>
+				<h2>Task</h2>
+				<h2 className="text-right">Due Date</h2>
+			</div>
+
+			{/* Deadline Container */}
+			<div className='flex flex-col min-h-[500px] overflow-y-auto bg-gray-300 dark:bg-gray-950/50 dark:border-gray-950/50 p-2 rounded-lg' >
+				{deadLines && deadLines.length > 0 ? (
+					<div className="space-y-2">
+						{deadLines.map((deadline) => (
+							<div 
+								key={deadline.deadlineID} 
+								onClick={() => handleViewDeadline(deadline)}  
+								className='grid grid-cols-[2fr_3fr_1.5fr] gap-4 items-center px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 hover:border-zuccini-500 dark:hover:border-zuccini-600 hover:shadow-md transition-all duration-300 cursor-pointer group'
+							>
+								{/* Program Code */}
+								<div className='flex items-center gap-3'>
+									<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-zuccini-100 dark:bg-zuccini-900/30 group-hover:bg-zuccini-200 dark:group-hover:bg-zuccini-900/50 transition-colors">
+										<FontAwesomeIcon 
+											icon={faAngleRight} 
+											className="text-zuccini-600 dark:text-zuccini-500" 
+										/>
+									</div>
+									<h2 className='text-lg font-semibold text-gray-800 dark:text-white'>
+										{deadline.programCode}
+									</h2>
+								</div>
+
+								{/* Task/Area Name */}
+								<h2 className='text-sm text-gray-600 dark:text-gray-300 line-clamp-2'>
+									{deadline.areaName}
+								</h2>
+
+								{/* Due Date */}
+								<div className="flex items-center justify-end gap-2">
+									<div className="p-2 text-sm font-medium rounded-full bg-neutral-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+										{deadline.due_date}
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+				) : (
+					<div className="flex items-center justify-center h-full">
+						<div className="text-center">
+							<svg 
+								className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" 
+								fill="none" 
+								stroke="currentColor" 
+								viewBox="0 0 24 24"
+							>
+								<path 
+									strokeLinecap="round" 
+									strokeLinejoin="round" 
+									strokeWidth={1.5} 
+									d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" 
+								/>
+							</svg>
+							<p className="text-lg font-medium text-gray-500 dark:text-gray-400">No deadlines ahead</p>
+							<p className="text-sm text-gray-400 dark:text-gray-500">You're all caught up!</p>
+						</div>
+					</div>
+				)}            
+			</div>
+
+			{/* Display deadlines modal */}
+			{showDeadline && selectedDeadline && (
+				<DeadlineModal 
+					programName={selectedDeadline.programName} 
+					programCode={selectedDeadline.programCode} 
+					area={selectedDeadline.areaName} 
+					criteria={selectedDeadline.criteria || 'No Criteria'}
+					date={selectedDeadline.date} 
+					color={selectedDeadline.color} 
+					content={selectedDeadline.content || 'No description'} 
+					id={selectedDeadline.id}
+					onClick={handleCloseDeadline}
+					showModal={showDeadline}
+				/>
+			)}
+		</div>
+		</section>
+	
+	
+
+	{/* shows status when creating deadline */}	
+	<Toaster />
+	{showStatusModal && (<StatusModal message={statusMessage} type={statusType} showModal={showStatusModal} onClick={()=>setShowStatusModal(false)} />)} 
+
+
+	{/* Calendar */}
+		<div className="relative row-start-3 p-3 transition-all text-gray-800 duration-500 bg-transparent border shadow-xl md:row-start-2 rounded-2xl border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:shadow-sm dark:shadow-zuccini-900 dark:text-white dark:bg-gray-900 ">
+			<FullCalendar 
+				plugins={[dayGridPlugin]}
+				initialView='dayGridMonth'
+				headerToolbar={{start: 'title', center: '', end: 'today prev next'}}
+				events={event}        
+				eventClick={handleEventClick}
+				height={'550px'}                    
+				expandRows={true}
+			/>
+
+			{/* EventModal */}
+			{showEventModal && selectedEvent && (
+				<EventModal title={selectedEvent.title} showModal={showEventModal} date={selectedEvent.date} content={selectedEvent.content || 'N/A'} onClick={handleCloseModal} />
+			)}
+		</div>
+
+
+	{ isAdmin && (
+		<section  className='grid grid-cols-2 grid-rows-2 gap-4 mt-4 md:grid-cols-2 lg:grid-rows-1' >
+
+			{/* Pending Documents
 			<div className="p-3 mb-5 transition-all duration-500 shadow-xl md:p-5 text-neutral-800 border-1 border-neutral-300 rounded-3xl inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:border-gray-900 dark:bg-gray-900" >
 				<div className='flex flex-row'>
 					<FontAwesomeIcon icon={faHourglassHalf}  className="p-2 transition-all duration-500 dark:text-white" />
@@ -460,10 +667,10 @@ return (
 						)
 					})}
 				</div>
-			</div>
+			</div> */}
 
 			{/* Audit Logs */}                
-			<div className="p-3 mb-5 transition-all duration-500 shadow-xl md:p-5 text-neutral-800 border-1 dark:border-gray-900 border-neutral-300 rounded-3xl inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900">
+			<div className="col-span-2 p-3 mb-5 transition-all duration-500 shadow-xl md:p-5 text-neutral-800 border-1 dark:border-gray-900 border-neutral-300 rounded-3xl inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900">
 				<div className='flex flex-row'>
 					<FontAwesomeIcon icon={faGears} className="p-2 transition-all duration-500 dark:text-white" />
 					<h2 className="mb-4 text-xl font-semibold transition-all duration-500 text-neutral-800 dark:text-white">Audit Logs</h2>
@@ -498,7 +705,7 @@ return (
                                         return (
                                             <tr 
                                                 key={log.logID} 
-                                                className="transition-colors duration-150 hover:bg-gray-400 dark:hover:bg-gray-800/70"
+                                                className="transition-colors animation-appear duration-150 hover:bg-gray-400 dark:hover:bg-gray-800/70"
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2">
@@ -570,130 +777,159 @@ return (
                 </section>
             )}
 
-	{/* Submission deadline section */}
-	<section  className=' mb-5 grid grid-cols-1 gap-3 md:gap-6 md:grid-cols-2 grid-rows-[auto_1fr] w-full text-gray-900' >
-
-		{/* Create deadline */}
-		<div className="relative shadow-xl col-span-2 pt-3 px-3 min-h-[100px] border border-neutral-300 rounded-2xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-sm dark:shadow-zuccini-900 dark:bg-gray-900" >
-			<h1 className="mx-3 my-1 font-medium text-md"><FontAwesomeIcon icon={faCalendarPlus} className="mr-2" />Create Submission Deadlines</h1>
-			<form onSubmit={handleCreateDeadline}  className='grid grid-cols-1 grid-rows-[auto_1fr] md:grid-cols-4 md:grid-rows-1 md:gap-x-2' >
-
-				{/* Select Department */}
-				<div className="min-h-[100px] p-3 flex flex-col justify-center">
-					<label htmlFor ="program"  className='mb-1 `text-lg font-extralight' >Program</label>
-					<select name="program" id="program" value={program} onChange={(e)=> {setProgram(e.target.value)}} required  className='p-2 font-semibold transition-all duration-500 cursor-pointer dark:inset-shadow-zuccini-900 dark:inset-shadow-sm dark:border-none bg-neutral-300 border-1 rounded-xl focus:outline focus:outline-zuccini-700 focus:border-zuccini-900 dark:bg-gray-950/50' >
-						<option value="">Select a Program</option>
-						{programOption.map((program) => (
-							<option key={program.programID} value={program.programID}>{program.programName}</option>
-						))}
-					</select>
-				</div>
-				
-				{/* Select Area */}
-				<div className="min-h-[100px] p-3 flex flex-col justify-center">
-					<label htmlFor="area"  className='mb-1 text-lg font-extralight' >Area</label>
-					<select name="area" id="area" value={selectedAreaOption} onChange={(e)=> {setSelectedAreaOption(e.target.value)}} required  className='p-2 font-semibold transition-all duration-500 cursor-pointer dark:inset-shadow-zuccini-900 dark:inset-shadow-sm dark:border-none bg-neutral-300 border-1 rounded-xl focus:outline focus:outline-zuccini-700 focus:border-zuccini-900 dark:bg-gray-950/50' >
-						<option value="">Select an Area</option>
-						{filteredAreaOptions.filter((area, index, self) => index === self.findIndex(a => a.areaID === area.areaID)).map((area) => (
-							<option key={area.areaID} value={area.areaID}>{area.areaName}</option>
-						))}
-					</select>
-				</div>
-
-				{/* Select date of deadline */}
-				<div  className="min-h-[100px] p-3 flex flex-col justify-center" >
-					<label htmlFor="due_date"  className='mb-1 text-lg font-extralight' >Deadline</label>
-					<input type="date" name="due_date" id="due_date" value={dueDate} onChange={(e)=> {setDueDate(e.target.value)}} required  className='p-2 font-semibold transition-all duration-500 border cursor-pointer dark:inset-shadow-zuccini-900 dark:inset-shadow-sm dark:border-none bg-neutral-300 rounded-xl focus:outline focus:outline-zuccini-700 focus:border-zuccini-900 dark:bg-gray-950/50' />  
-				</div>
-
-				{/* Create Deadline Btn*/}
-				<input type="submit" value="Create Deadline" className='px-6 py-2 font-semibold text-gray-600 transition-colors duration-500 border-gray-500 shadow-xl cursor-pointer from-gray-300/50 via-gray-200 to-gray-400/50 dark:text-gray-200 hover:text-gray-200 place-self-center rounded-xl bg-gradient-to-br hover:from-zuccini-400 hover:via-zuccini-500 hover:to-zuccini-700 dark:from-gray-800/50 dark:via-gray-700 dark:to-gray-900/50' />
-
-				{/* Deadline description */}
-				<div className='flex flex-col px-3 py-3 md:col-span-4 '>
-					<label htmlFor="content"  className='mb-1 text-lg font-extralight' >Description</label>
-					<textarea name="content" value={content} id="content" placeholder={"Input the deadline description"} onChange={(e)=> {setContent(e.target.value)}} required  className='scrollbar-hide placeholder-neutral-500 whitespace-pre-line resize-y w-full min-h-[200px] px-4 py-3 font-semibold transition-all duration-500 cursor-pointer bg-neutral-300 border-1 rounded-xl focus:outline focus:outline-zuccini-700 focus:border-zuccini-900 dark:bg-gray-950/50 dark:inset-shadow-zuccini-900 dark:inset-shadow-sm dark:border-none' />
-				</div>
-			</form>
-		</div>
-
-		{/* Deadlines */}
-		<div className="relative flex flex-col items-center row-start-2 p-3 border shadow-xl rounded-2xl inset-shadow-sm border-neutral-300 inset-shadow-gray-400 dark:bg-gray-900 dark:shadow-sm dark:shadow-zuccini-900">                    
-			<div className='grid w-full grid-cols-3 font-medium text-center dark:text-white '>
-				<h2>Program</h2>
-				<h2>Task</h2>
-				<h2>Deadline</h2>
-			</div>
-
-			{/* Deadline container */}
-			<div className='flex flex-col items-center min-h-[500px] border-neutral-400 min-w-full p-1 bg-neutral-300 rounded-md border relative dark:bg-gray-950/50 ' >
-				{deadLines && deadLines.length > 0 ? deadLines.map((deadline) => (
-					<div key={deadline.deadlineID} onClick={() => handleViewDeadline(deadline)}  className='relative grid grid-cols-3 justify-center mt-2 border p-2  rounded-lg bg-neutral-200 transition-all duration-500 dark:bg-gray-900 hover:bg-neutral-300 dark:hover:bg-[#232228] cursor-pointer' >
-						<div className='flex items-center px-2' >
-							<FontAwesomeIcon icon={faAngleRight} className="mr-3 dark:text-white" />
-							<h2 className='mb-1 text-2xl font-semibold tracking-widest text-center transition-all duration-500 text-neutral-600 text-wrap dark:text-white'>{deadline.programCode}</h2>
+		{/* Display Create deadline modal */}
+		{showCreateDeadline && (		
+			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">			
+				<div className="relative w-full max-w-3xl bg-gray-200 dark:bg-gray-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+					{/* Header */}
+					<div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-gradient-to-br from-zuccini-400 to-zuccini-700 dark:bg-gray-900 border-neutral-200 dark:border-gray-700 rounded-t-2xl">
+						<div className="flex items-center gap-3">
+							<div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zuccini-100 dark:bg-zuccini-900/30">
+								<FontAwesomeIcon icon={faCalendarPlus} className="text-zuccini-600 dark:text-zuccini-500" />
+							</div>
+							<h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+								Create Submission Deadline
+							</h1>
 						</div>
-						<h2 className='font-light transition-all duration-500 text-md place-self-center text-neutral-600 text-wrap dark:text-white'>{deadline.areaName}</h2>
-						<h2 className='transition-all duration-500 text-md place-self-center text-neutral-600 dark:text-white'>{deadline.due_date}</h2>
-		  			</div>
-					)) : (<p className="m-auto text-lg text-center text-gray-500 font-extralight">No deadlines ahead.</p>
-				)}            
+						<button
+							onClick={() => setShowCreateDeadline(false)}
+							className="flex items-center justify-center w-8 h-8 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-400"
+						>
+							<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					{/* Form */}
+					<form onSubmit={handleCreateDeadline} className="p-6">
+						{/* Form Fields Grid */}
+						<div className="grid grid-cols-1 gap-5 mb-5 md:grid-cols-3">
+							{/* Select Program */}
+							<div className="flex flex-col">
+								<label htmlFor="program" className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+									Program <span className="text-red-500">*</span>
+								</label>
+								<select 
+									name="program" 
+									id="program" 
+									value={program} 
+									onChange={(e) => setProgram(e.target.value)} 
+									required  
+									className="px-4 py-2.5 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-zuccini-500 focus:border-zuccini-500 dark:focus:ring-zuccini-600 transition-all outline-none"
+								>
+									<option value="">Select a Program</option>
+									{programOption.map((program) => (
+										<option key={program.programID} value={program.programID}>
+											{program.programName}
+										</option>
+									))}
+								</select>
+							</div>
+							
+							{/* Select Area */}
+							<div className="flex flex-col">
+								<label htmlFor="area" className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+									Area <span className="text-red-500">*</span>
+								</label>
+								<select 
+									name="area" 
+									id="area" 
+									value={selectedAreaOption} 
+									onChange={(e) => setSelectedAreaOption(e.target.value)} 
+									required  
+									className="px-4 py-2.5 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-zuccini-500 focus:border-zuccini-500 dark:focus:ring-zuccini-600 transition-all outline-none"
+								>
+									<option value="">Select an Area</option>
+									{filteredAreaOptions
+										.filter((area, index, self) => index === self.findIndex(a => a.areaID === area.areaID))
+										.map((area) => (
+											<option key={area.areaID} value={area.areaID}>
+												{area.areaName}
+											</option>
+										))
+									}
+								</select>
+							</div>
+
+							{/* Select Deadline Date */}
+							<div className="flex flex-col">
+								<label htmlFor="due_date" className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+									Due Date <span className="text-red-500">*</span>
+								</label>
+								<input 
+									type="date" 
+									name="due_date" 
+									id="due_date" 
+									value={dueDate} 
+									onChange={(e) => setDueDate(e.target.value)} 
+									required  
+									className="px-4 py-2.5 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-zuccini-500 focus:border-zuccini-500 dark:focus:ring-zuccini-600 transition-all outline-none"
+								/>  
+							</div>
+						</div>
+
+						{/* Deadline Description */}
+						<div className="flex flex-col mb-6">
+							<label htmlFor="content" className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+								Description <span className="text-red-500">*</span>
+							</label>
+							<textarea 
+								name="content" 
+								value={content} 
+								id="content" 
+								placeholder="Enter a detailed description of the deadline..." 
+								onChange={(e) => setContent(e.target.value)} 
+								required  
+								rows={6}
+								className="px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-zuccini-500 focus:border-zuccini-500 dark:focus:ring-zuccini-600 transition-all outline-none resize-y"
+							/>
+							<p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+								Provide context and any important details about this deadline.
+							</p>
+						</div>
+
+						{/* Action Buttons */}
+						<div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-gray-700">
+							<button
+								type="button"
+								onClick={() => setShowCreateDeadline(false)}
+								className="px-5 py-2.5 font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								className="px-6 py-2.5 font-medium text-white bg-gradient-to-r from-zuccini-600 to-zuccini-700 dark:from-zuccini-700 dark:to-zuccini-800 hover:from-zuccini-700 hover:to-zuccini-800 dark:hover:from-zuccini-600 dark:hover:to-zuccini-700 rounded-lg shadow-md hover:shadow-lg transition-all"
+							>
+								Create Deadline
+							</button>
+						</div>
+					</form>
+				</div>
 			</div>
+		)}	
 
-			{/* Display deadlines */}
-			{showDeadline && selectedDeadline && (
-				<DeadlineModal 
-					programName={selectedDeadline.programName} 
-					programCode={selectedDeadline.programCode} 
-					area={selectedDeadline.areaName} 
-					criteria={truncateText(selectedDeadline.criteriaName)}
-					date={selectedDeadline.date} 
-					color={selectedDeadline.color} 
-					content={selectedDeadline.content || 'No description'} 
-					id={selectedDeadline.id}
-					onClick={handleCloseDeadline}
-					showModal={showDeadline}
-				/>
-			)}
-		</div>
-
-		{/* Calendar */}
-		<div className="relative row-start-3 p-3 transition-all duration-500 bg-transparent border shadow-xl md:row-start-2 rounded-2xl border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:shadow-sm dark:shadow-zuccini-900 dark:text-white dark:bg-gray-900 ">
-			<FullCalendar 
-				plugins={[dayGridPlugin]}
-				initialView='dayGridMonth'
-				headerToolbar={{start: 'title', center: '', end: 'today prev next'}}
-				events={event}        
-				eventClick={handleEventClick}
-				height={'500px'}                    
-				expandRows={true}
-			/>
-
-			{/* EventModal */}
-			{showEventModal && selectedEvent && (
-				<EventModal title={selectedEvent.title} showModal={showEventModal} date={selectedEvent.date} content={selectedEvent.content || 'N/A'} onClick={handleCloseModal} />
-			)}
-		</div>
-	</section>
+			
 	</>
 )}
 
 export const DashboardLinks = ({icon, text, page, count, loading = false}) =>{
 	const navigate = useNavigate()
 	return (
-		<div onClick={() => navigate(`/${page}`)} className='relative flex flex-row items-center h-20 p-4 m-1 transition-all duration-500 shadow-xl cursor-pointer text-neutral-800 border-1 border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:border-gray-800 rounded-3xl dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900'>
-			<div className='flex items-center justify-center p-2 w-12 h-12 bg-[#5ADF9C] rounded-full mr-3'><FontAwesomeIcon icon={icon}  className="text-2xl text-center text-neutral-800" /></div>
-			<h1 className="text-xl font-semibold transition-all duration-500 text-shadow-sm dark:text-white">{text}</h1>
-			<span className="absolute text-lg transition-all duration-500 right-6 dark:text-white">{loading ? '...' : count}</span>
+		<div onClick={() => navigate(`/${page}`)} className='relative flex flex-row items-center h-[100px] p-4 m-1 bg-gradient-to-r from-green-400/90 to-teal-600/90 dark:from-green-600/80 dark:to-teal-800/80 transition-all duration-500 shadow-xl cursor-pointer text-neutral-800 border-1 border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:border-gray-800 rounded-3xl dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900'>
+			<div className='flex items-center justify-center p-2 w-12 h-12 bg-gray-200 rounded-full mr-3'><FontAwesomeIcon icon={icon} className="text-2xl text-center text-zuccini-700" /></div>
+			<h1 className="text-xl font-semibold transition-all duration-500 text-shadow-sm text-white">{text}</h1>
+			<span className="absolute text-lg transition-all duration-500 right-6 text-white">{loading ? '...' : count}</span>
 		</div>
 	)
 }
 
 export const Area = ({onClick, program, areaTitle, desc, progress, areaColor}) =>{
 	return(
-		<div onClick={onClick} className="relative mr-4 min-w-[300px] h-[210px] border-neutral-400 dark:border-neutral-800 border rounded-lg shadow-xl dark:shadow-sm dark:shadow-zuccini-700 overflow-hidden transition-all duration-500 hover:scale-105 cursor-pointer">
+		<div onClick={onClick} className="relative animate-appear mr-4 min-w-[300px] h-[210px] border-gray-400 dark:border-gray-800 border rounded-lg shadow-xl dark:shadow-sm dark:shadow-zuccini-700 overflow-hidden transition-all duration-500 hover:scale-105 cursor-pointer">
 			<div style={{background: areaColor}}  className='h-[50%]'> 
-				<div  className='absolute px-5 font-light border border-neutral-400 top-2 right-2 bg-neutral-200 rounded-xl dark:bg-gray-900 dark:text-white'>{program}</div>
+				<div className='absolute px-5 font-light border border-gray-400 top-2 right-2 bg-neutral-200 rounded-xl dark:bg-gray-900 dark:text-white'>{program}</div>
 				<CircularProgressBar progress={progress} circleWidth="75" positionX={"left-3"} positionY={"top-17"} placement={`absolute top-17 left-3`}/>           
 			</div>      
 			<div className='text-right h-[50%] p-3 bg-neutral-200 border-t-1 transition-all duration-500  dark:bg-gray-900 dark:text-white dark:border-t-neutral-600'>
@@ -704,4 +940,4 @@ export const Area = ({onClick, program, areaTitle, desc, progress, areaColor}) =
 	)
 }
 
-export default Dashboard
+export default Dashboard;
