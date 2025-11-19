@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import {faSearch, faFilter, faCalendar, faBookOpen, faArrowTrendUp} from '@fortawesome/free-solid-svg-icons'
+import {faSearch, faFilter, faCalendar, faRectangleList, faLayerGroup, faChartPie, faBookOpen, faArrowTrendUp} from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { apiGet } from '../utils/api_utils'
 import { adminHelper } from '../utils/auth_utils'
 import StatusModal from '../components/modals/StatusModal'
 import {Area} from './Dashboard'
 import AreaDetailModal from '../components/modals/AreaDetailModal'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'
+import CircularProgressBar from '../components/CircularProgressBar'
 
 // Filter Component
 const FilterPanel = ({ filters, onFilterChange, programs = [] }) => {
@@ -16,7 +17,7 @@ const FilterPanel = ({ filters, onFilterChange, programs = [] }) => {
       <div className="flex flex-col">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program</label>
         <select value={filters.program} onChange={(e) => onFilterChange('program', e.target.value)} className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 inset-shadow-sm inset-shadow-gray-400 dark:bg-gray-900 text-gray-700 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent" >
-          <option value="">All Programs</option>
+          <option value="">All Departments</option>
           {programs.map(program => (
             <option key={program.code} value={program.code}>{program.name}</option>
           ))}
@@ -117,7 +118,7 @@ const AreaProgressPage = () => {
     progressLevel: '',
     sortBy: 'name'
   })
-  const [programChart, setProgramChart] = useState('allDept')
+  // programChart removed: we'll use filters.program to drive both list and chart
 
   // Loading and error states
   const [loading, setLoading] = useState(true)
@@ -129,6 +130,8 @@ const AreaProgressPage = () => {
   // Modal states
   const [showAreaDetail, setShowAreaDetail] = useState(false)
   const [selectedArea, setSelectedArea] = useState(null)
+
+  const [viewMode, setViewMode] = useState('grid'); // grid or list
 
   // FETCH PROGRAMS
   useEffect(() => {
@@ -204,9 +207,9 @@ const AreaProgressPage = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(area => 
-        area.areaTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        area.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        area.programCode.toLowerCase().includes(searchTerm.toLowerCase())
+        (area.description && area.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (area.areaNum && area.areaNum.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (area.programCode && area.programCode.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
 
@@ -245,9 +248,10 @@ const AreaProgressPage = () => {
         filtered.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
         break
       case 'name':
-          filtered.sort((a, b) => a.description.localeCompare(b.areaTitle))
+        filtered.sort((a, b) => (a.description || '').localeCompare(b.description || ''))
+        break
       default:
-          filtered.sort((a, b) => a.areaNum.localeCompare(b.areaTitle))
+        filtered.sort((a, b) => (a.areaNum || '').toString().localeCompare((b.areaNum || '').toString()))
         break
     }
 
@@ -255,10 +259,10 @@ const AreaProgressPage = () => {
     const updatedFiltered = filtered.map((filteredArea) => {
       const areaProgram = programs.find(program => program.code === filteredArea.programCode)
       console.log('areaProgram: ', areaProgram)
-      return ({...filteredArea, areaColor: areaProgram.color})
+      return ({...filteredArea, areaColor: areaProgram && areaProgram.color})
     })
     setFilteredAreas(updatedFiltered)
-  }, [areas, searchTerm, filters])
+  }, [areas, searchTerm, filters, programs])
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({ ...prev, [filterType]: value }))
@@ -341,17 +345,17 @@ const AreaProgressPage = () => {
   }
 
   // Processed data for bar chart
-  const displayedAreas = programChart === 'allDept' ? areas : areas.filter(area => area.programCode === programChart)
+  const displayedAreas = (filters.program === '' || !filters.program) ? areas : areas.filter(area => area.programCode === filters.program)
   const groupedAreas = Object.values(displayedAreas.reduce((acc, curr)=> {
     if(!acc[curr.areaNum]) {
       acc[curr.areaNum] = {areaNum: curr.areaNum, totalProgress: 0, count: 0}
     }
-    acc[curr.areaNum].totalProgress =+ curr.progress
-    acc[curr.areaNum].count =+ 1
+    acc[curr.areaNum].totalProgress += (curr.progress || 0)
+    acc[curr.areaNum].count += 1
     return acc
   }, {})).map(group => ({
     areaNum: group.areaNum,
-    totalProgress: parseInt((group.totalProgress / group.count))
+    totalProgress: group.count ? Math.round(group.totalProgress / group.count) : 0
   }))
   console.log('grouped areas: ', groupedAreas)
 
@@ -406,32 +410,8 @@ const AreaProgressPage = () => {
         </div>
       )}
 
-      {/* Graphs */}
-      <section className=' flex h-100 flex-col items-end p-4 w-full overflow-auto shadow-inner shadow-gray-400 border border-gray-300 bg-gray-200 rounded-xl [&_*:focus]:outline-none ' >
-        <select value={programChart} onChange={(e)=> setProgramChart(e.target.value)}  name="selectDept" className='w-1/2 p-2 right-0 outline-0 border mb-8 border-gray-300 shadow-inner shadow-gray-400 rounded text-neutral-800' >
-          <option value="allDept" selected  className='text-gray-400' >All Department</option>
-          {programs.map((program)=> (
-            <option key={program.code} value={program.code}>{program.name}</option>
-          ))}
-        </select>
-        {groupedAreas.length === 0 ? (
-          <p className='text-gray-500 text-7xl place-self-center' >This program have no Areas</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={290}>
-            <BarChart data={groupedAreas}>
-              <CartesianGrid strokeDasharray="5" />
-              <XAxis dataKey='areaNum'/>
-              <YAxis domain={[0, 100]} tickCount={6} tickFormatter={(value)=> `${value}%`} />
-              <Tooltip formatter={(value)=> `${value}%`} />
-              <Legend />
-              <Bar dataKey="totalProgress" name="Progress" fill="#329a65" radius={[10, 10, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </section>
-
-      {/* Filters */}
-      <div className="mb-6">
+         {/* Filters */}
+      <div className="mb-2">
         <div className="flex items-center gap-2 mb-4">
           <FontAwesomeIcon icon={faFilter} className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <h2 className="text-lg font-semibold">Filters</h2>
@@ -443,34 +423,192 @@ const AreaProgressPage = () => {
         />
       </div>
 
+      <div className="grid grid-cols-2 place-self-end text-gray-600 border rounded-lg border bg-gray-300 my-2 w-30 border-gray-400 text-gray-600 dark:text-gray-400 shadow-xl">
+        <div 
+          onClick={() => setViewMode('grid')}
+          title="Grid Layout"
+          className={`${viewMode === 'grid' ? "bg-zuccini-500 inset-shadow-gray-700 inset-shadow-sm" : ""} px-5 py-3 rounded-tl-lg rounded-bl-lg text-center`}>
+          <FontAwesomeIcon icon={faLayerGroup} />
+        </div>
+        <div 
+          onClick={() => setViewMode('list')}
+          title="List Layout"
+          className={`${viewMode === 'list' ? "bg-zuccini-500 inset-shadow-gray-700 inset-shadow-sm" : ""} px-5 py-3 rounded-tr-lg rounded-br-lg text-center`}>
+          <FontAwesomeIcon icon={faRectangleList} />
+        </div>
+      </div>
+
+      {/* Graphs */}
+      <section className={`mb-8 grid ${viewMode === 'grid' ? "grid-cols-1" : "grid-cols-2"} gap-4`}>        
+        <div className='flex max-h-[600px] flex-col items-center justify-center p-4 w-full  text-neutral-800 border-1 dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900 [&_*:focus]:outline-none ' >        
+          {groupedAreas.length === 0 ? (           
+            <div className='flex h-[300px] flex-col items-center justify-center p-4 w-full'>
+              <FontAwesomeIcon icon={faChartPie} className="text-gray-500 text-7xl mb-5" /> 
+              <p className='text-gray-500 text-lg' >
+                This program have no areas
+              </p>            
+              <p className="text-sm text-gray-400">Try adjusting your search or filters.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col h-full items-center justify-center mb-1">                
+                  <h2 className="text-2xl font-semibold">Area Progress Distribution</h2>                  
+                  <p className="text-md text-gray-600">{filters.program ? programs.find(p => p.code === filters.program)?.name || 'Unknown Program' : 'All Departments'} — {groupedAreas.length} area(s)</p>     
+              </div>
+              <ResponsiveContainer width="100%" height={450}>
+                <BarChart
+                  data={groupedAreas}
+                  margin={{ top: 30, right: 30, left: 10, bottom: 80 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                  <XAxis
+                    dataKey="areaNum"
+                    interval={0}
+                    tick={{ fontSize: 11, fill: '#374151' }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    label={{ value: 'Area Number', position: 'insideBottom', offset: -10, style: { fontSize: 14, fontWeight: 'bold' } }}
+                  />
+                  <YAxis 
+                    domain={[0, 100]} 
+                    tickCount={6} 
+                    tick={{ fontSize: 11, fill: '#374151' }}
+                    label={{ value: 'Progress (%)', angle: -90, position: 'insideLeft', style: { fontSize: 14, fontWeight: 'bold' } }}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`${value}%`, 'Progress']}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '8px' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingBottom: '20px' }}
+                    fontSize={14}
+                    textAlign="center"
+                    verticalAlign="top"             
+                    iconType="square"
+                  />
+                  <Bar 
+                    dataKey="totalProgress" 
+                    name="Progress" 
+                    fill="#10b981" 
+                    radius={[8, 8, 0, 0]}
+                    maxBarSize={60}
+                  >
+                    <LabelList 
+                      dataKey="totalProgress" 
+                      formatter={(value) => `${value}%`} 
+                      position="top"
+                      style={{ fontSize: 12, fontWeight: 'bold', fill: '#059669' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          )}
+        </div>
+        {viewMode === 'list' ? (          
+          <div className={`relative p-3 md:p-5 text-neutral-800 border-1 dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>
+					<h2 className="text-xl font-semibold mb-4">
+            Areas ({filteredAreas.length} of {areas.length})
+          </h2>
+          <div className="space-y-3 bg-gray-300 dark:bg-gray-950/50 dark:border-gray-950/50 p-2 border-5 border-gray-300 rounded-lg overflow-y-auto max-h-[500px]">
+            {filteredAreas.length > 0 ? filteredAreas.map((area) => (
+              <div
+                key={area.areaID} 
+                onClick={handleAreaClick}
+                className="flex items-center animate-appear justify-between p-4 bg-gray-200 dark:bg-gray-900 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:border-zuccini-500 dark:hover:border-zuccini-600 transition-all duration-300 cursor-pointer group"
+                >
+                {/* Left side - Progress and Area Info */}
+                <div className="flex items-center gap-6">
+                  <CircularProgressBar 
+                  progress={area.progress || 0} 
+                  circleWidth="60" 
+                  placement="relative"
+                  />
+                  
+                  <div className="flex flex-col">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {area.areaNum}
+                    </h1>
+                    <span className="px-3 py-1 text-sm font-light border border-neutral-400 dark:border-neutral-600 bg-neutral-100 dark:bg-gray-800 rounded-full text-gray-700 dark:text-gray-300">
+                    {area.programCode}
+                    </span>
+                  </div>
+                  <h2 className="text-base text-gray-600 dark:text-gray-400">
+                    {area.description}
+                  </h2>
+                  </div>
+                </div>
+
+                {/* Right side - Arrow indicator */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <svg 
+                  className="w-6 h-6 text-zuccini-600 dark:text-zuccini-500" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5l7 7-7 7" 
+                  />
+                  </svg>
+                </div>
+              </div>
+            )
+          ) : (              
+            <div className="flex flex-col items-center justify-center py-16 w-full">
+              <FontAwesomeIcon icon={faBookOpen} className="text-7xl text-gray-400 mb-4" />
+              <p className="text-lg text-gray-500">No areas found matching your criteria.</p>
+              <p className="text-sm text-gray-400">Try adjusting your search or filters.</p>
+            </div>
+            )}
+          </div>
+        </div>
+
+        ) : (
+          <></>
+        )}
+        
+      </section>
+
+  
       {/* Areas Grid */}
-      <div className="mb-4">
+      {viewMode === 'grid' ? (
+        <div className="flex flex-wrap gap-4 p-4 bg-gray-200 inset-shadow-sm inset-shadow-gray-400 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-semibold mb-4">
           Areas ({filteredAreas.length} of {areas.length})
         </h2>
         
         {filteredAreas.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 max-h-[450px] overflow-y-scroll md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredAreas.map((area) => (
               <Area
                 onClick={handleAreaClick}
-                key={area.areaID} 
-                areaTitle={area.areaNum} 
-                desc={area.description} 
-                program={area.programCode} 
+                key={area.id}
+                areaTitle={area.areaNum}
+                desc={area.description}
+                program={area.programCode}
                 progress={area.progress}
                 areaColor={area.areaColor}
               />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-16">
-            <FontAwesomeIcon icon={faBookOpen} className="w-16 h-16 text-gray-400 mb-4" />
+          <div className="flex flex-col items-center justify-center py-16 w-full">
+            <FontAwesomeIcon icon={faBookOpen} className="text-7xl text-gray-400 mb-4" />
             <p className="text-lg text-gray-500">No areas found matching your criteria.</p>
             <p className="text-sm text-gray-400">Try adjusting your search or filters.</p>
           </div>
         )}
       </div>
+      ) : (
+        <></>
+      )}
+      
 
       {showAreaDetail && selectedArea && (
         <AreaDetailModal

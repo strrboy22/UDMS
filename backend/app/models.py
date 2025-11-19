@@ -298,6 +298,8 @@ class DeadlineCriteria(db.Model):
     deadlineID = db.Column(db.Integer, db.ForeignKey('deadline.deadlineID', ondelete="CASCADE"))
     criteriaID = db.Column(db.Integer, db.ForeignKey('criteria.criteriaID', ondelete="CASCADE"))
 
+    criteria = db.relationship("Criteria", backref="deadline_criteria")
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_log'
 

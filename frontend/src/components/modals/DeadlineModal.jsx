@@ -9,8 +9,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const DeadlineModal = ({id, programName, programCode, area, criteria, date, color = "#3B82F6", content, onClick, showModal}) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className={`relative bg-gray-200 dark:bg-gray-900 rounded-2xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden ${showModal ? 'fade-in' : 'fade-out'}`}>
+    <div className="fixed inset-0 z-50 flex items-center  justify-center bg-black/50 backdrop-blur-sm">
+      <div className={`relative overflow-y-scroll bg-gray-200 dark:bg-gray-900 rounded-2xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden ${showModal ? 'fade-in' : 'fade-out'}`}>
         {/* Header with accent color */}
         <div 
           className="w-full h-2"
@@ -59,9 +59,22 @@ const DeadlineModal = ({id, programName, programCode, area, criteria, date, colo
                 <FontAwesomeIcon icon={faBook} />
                 <span className="font-medium">Criteria</span>
               </div>
-              <p className="pl-6 text-lg font-semibold text-gray-900 dark:text-white">
-                {criteria}
-              </p>
+              {Array.isArray(criteria) && criteria.length > 0 ? (
+                <div className="pl-6 flex flex-wrap gap-2">
+                  {criteria.map((crit) => (
+                    <span
+                      key={crit.criteriaID}
+                      className="px-3 py-1 text-xs font-medium rounded-full bg-emerald-200 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-50"
+                    >
+                      {crit.criteriaID}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="pl-6 text-gray-500 dark:text-gray-400 text-sm">
+                  No criteria found for this deadline.
+                </p>
+              )}              
             </div>
 
              {/* Deadline */}

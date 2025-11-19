@@ -2263,12 +2263,19 @@ def register_routes(app):
                     Area.areaID,
                     Area.programID,
                     Area.subareaID,
-                    Program.programCode,                
+                    Area.templateID,
+                    Area.appliedTemplateID,
+                    Area.areaBlueprintID,
+                    Area.instID,
+                    Program.programCode,
+                    Program.programColor,
                     Area.areaName,
                     Area.areaNum,
                     Area.progress,
+                    Area.rating,
                     Area.archived,
-                    Subarea.subareaName
+                    Subarea.subareaName,
+                    Subarea.subareaID
                 )
             ).all()
 
@@ -2279,14 +2286,20 @@ def register_routes(app):
                 'areaID' : area.areaID,
                 'programID': area.programID,
                 'subareaID': area.subareaID,    
+                'templateID': area.templateID,
+                'appliedTemplateID': area.appliedTemplateID,
+                'areaBlueprintID': area.areaBlueprintID,
+                'instID': area.instID,
                 'programCode': area.programCode,
+                'programColor': area.programColor,
                 'areaTitle': area.areaName,
                 'areaNum': area.areaNum,
                 'areaName': f"{area.areaNum}: {area.areaName}",
                 'progress': area.progress,
+                'rating': area.rating,
                 'subareaName': area.subareaName,  
-                'archived': area.archived,                
-                'archived': area.archived              
+                'archived': area.archived,
+                'description': area.areaName
             }
             area_list.append(area_data)
         
@@ -2323,14 +2336,21 @@ def register_routes(app):
             )
             db.session.add(new_deadline)
             db.session.flush()
+            
 
             # 4️⃣ Link criteria
             for c in criteria_list:
                 link = DeadlineCriteria(deadlineID=new_deadline.deadlineID, criteriaID=c.criteriaID)
-                db.session.add(link)
+                db.session.add(link)            
+
+            new_log = AuditLog(
+                    employeeID = uploader.employeeID,
+                    action = f"{uploader.lName}, {uploader.fName} {uploader.suffix} created a deadline: {new_deadline.deadlineID}"
+                )
+            db.session.add(new_log)
 
             db.session.commit()
-            return jsonify({'success': True, 'message': f'Deadline created and linked to {len(criteria_list)} criteria!'}), 200
+            return jsonify({'success': True, 'message': f'Deadline created successfully!'}), 200
 
         except Exception as e:
             db.session.rollback()
@@ -2340,39 +2360,54 @@ def register_routes(app):
 
     # ============================================ Tasks Route ============================================
     
-
-    @app.route('/api/deadlines', methods=["GET"]) 
+    
+    @app.route('/api/deadlines', methods=["GET"])
     def get_deadline():
-
         deadlines = (Deadline.query
-                     .join(Program, Deadline.programID == Program.programID)
-                     .join(Area, Deadline.areaID == Area.areaID)
-                     .add_columns(
-                         Deadline.deadlineID,
-                         Program.programName,
-                         Program.programCode,
-                         Program.programColor,
-                         Area.areaName,
-                         Area.areaNum,
-                         Deadline.due_date,
-                         Deadline.content
-                     )).all()
-     
+                    .join(Program, Deadline.programID == Program.programID)
+                    .join(Area, Deadline.areaID == Area.areaID)
+                    .add_columns(
+                        Deadline.deadlineID,
+                        Program.programName,
+                        Program.programCode,
+                        Program.programColor,
+                        Area.areaName,
+                        Area.areaNum,
+                        Deadline.due_date,
+                        Deadline.content
+                    )).all()
+
         deadline_list = []
 
-        for dl in deadlines: 
-            deadline_data = {                            
+        for dl in deadlines:
+
+            # Fetch criteria for this deadline
+            criteria_list = []
+            criteria_records = (DeadlineCriteria.query
+                                .join(Criteria, DeadlineCriteria.criteriaID == Criteria.criteriaID)
+                                .filter(DeadlineCriteria.deadlineID == dl.deadlineID)
+                                .all())
+
+            for crit in criteria_records:
+                criteria_list.append({
+                    "criteriaID": crit.criteria.criteriaID                    
+                })
+
+            deadline_data = {
                 'deadlineID': dl.deadlineID,
                 'programName': dl.programName,
                 'programColor': dl.programColor,
-                'programCode': dl.programCode,                               
-                'areaName': dl.areaNum + ": " + dl.areaName, 
+                'programCode': dl.programCode,
+                'areaName': f"{dl.areaNum}: {dl.areaName}",
                 'due_date': dl.due_date.strftime('%m-%d-%Y'),
-                'content': dl.content
+                'content': dl.content,
+                'criteria': criteria_list     
             }
+
             deadline_list.append(deadline_data)
 
         return jsonify({'deadline': deadline_list})
+
     
     #get the events for the calendar
     @app.route('/api/events', methods=["GET"])

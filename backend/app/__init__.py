@@ -10,7 +10,8 @@ import os
 import redis
 from flask_mail import Mail
 
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+redis_url = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+redis_client = redis.from_url(redis_url)
 
 db = SQLAlchemy()
 migrate = Migrate()
