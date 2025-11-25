@@ -186,7 +186,7 @@ export const SidebarContext = createContext();
 
 					{/* Nav Links */}
 					<SidebarContext.Provider value={{expanded}}>
-					<ul className={`flex flex-col flex-1 ml-1 mt-1 ${expanded ? 'items-end' : ''}`}>{children}</ul> 
+					<ul className={`flex flex-col gap-y-4 py-1 flex-1 ml-1 mt-1 ${expanded ? 'items-end' : ''}`}>{children}</ul> 
 					</SidebarContext.Provider>
 					{/* SidebarLinks is are generated below */}
 

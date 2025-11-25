@@ -87,13 +87,7 @@ const MainLayout = () => {
                   text="Templates"
                   active={activePage === 'Templates'}
                   onClick={() => navigate('/Templates')}
-                />)}
-                <SidebarLinks
-                  icon={faCircleCheck}
-                  text="Tasks"
-                  active={activePage === 'Tasks'}
-                  onClick={() => navigate('/Tasks')}
-                />
+                />)}          
                 <SidebarLinks
                   icon={faFileAlt}
                   text="Documents"

@@ -78,7 +78,7 @@ import toast, { Toaster } from 'react-hot-toast'
     formData.append('file', file);
     formData.append('final_path', finalPath);
 
-    const res = await fetch('/api/upload/chunked', {
+    const res = await fetch('/api/documents/upload', {
       method: 'POST',
       body: formData,
       credentials: 'include'

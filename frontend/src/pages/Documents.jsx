@@ -18,7 +18,9 @@ import {
   faXmark,
   faPenToSquare,
   faPlus,
-  faCircleNotch
+  faCircleNotch,
+  faChevronDown,
+  faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useState, useRef, useEffect } from "react";
@@ -39,6 +41,7 @@ const Documents = () => {
   const [openIndex, setOpenIndex] = useState(null);    
   const [tags, setTags] = useState([]); // State to hold tags
   const [activeTags, setActiveTags] = useState([]) 
+  const [showAllTags, setShowAllTags] = useState(false);
   const [viewMode, setViewMode] = useState("directory") // "directory" or "tag" 
   const [filteredDocs, setFilteredDocs] = useState([]);
 
@@ -247,14 +250,20 @@ const Documents = () => {
   };
 
 
+  const buildFullRepoPath = (segments, fileName = "") => {
+    const relativePath = [...segments, fileName].filter(Boolean).join("/");
+    const normalized = relativePath ? `${BASE_PATH}/${relativePath}` : BASE_PATH;
+    return encodeURIComponent(normalized.replace(/\/+/g, "/"));
+  };
+
   const handlePreview = (file) => {
-    const path = buildPath(currentPath, file.name);    
-    window.open(`${API_URL}/api/documents/preview/${path}`, "_blank");
+    const encodedPath = buildFullRepoPath(currentPath, file.name);
+    window.open(`${API_URL}/api/documents/preview/${encodedPath}`, "_blank");
   }
 
   const handleDownload = (file) => {
-    const path = buildPath(currentPath, file.name); 
-    window.location.href = `${API_URL}/api/documents/download/${path}`;
+    const encodedPath = buildFullRepoPath(currentPath, file.name);
+    window.location.href = `${API_URL}/api/documents/download/${encodedPath}`;
   }
 
   const handleDelete = async (docID) => {
@@ -355,36 +364,36 @@ const Documents = () => {
   return totalSize;
 };
 
+const BASE_PATH = "UDMS_Repository/Accreditation";
+
 const handleRename = async (target) => {
   if (!renameValue.trim() || renameValue === target.name) {
     setRenameTarget(null);
     setRenameValue("");
     return;
   }
+  console.log(currentPath)
+  setIsRenaming(true);
 
-  setIsRenaming(true); // Start loading
+  const relativeOldPath = buildPath(currentPath, target.name);
+  const relativeNewPath = buildPath(currentPath, renameValue.trim());
 
-  const oldPath = buildPath(currentPath, target.name)
-  const newPath = buildPath(currentPath, renameValue.trim());
+  const oldPath = `${BASE_PATH}/${relativeOldPath}`;
+  const newPath = `${BASE_PATH}/${relativeNewPath}`;
 
   try {
-    await apiPut('/api/documents/rename', { oldPath, newPath });
+    await apiPut("/api/documents/rename", { oldPath, newPath });
+    await refreshDirectory();
 
-    await refreshDirectory()
-    
-    // Clear rename states after successful rename
-    setRenameTarget(null);
-    setRenameValue("");
-    setIsRenaming(false);
   } catch (err) {
-    console.error("Rename failed:", err.response?.data || err.message);    
-    
-    // Clear rename states even on error
-    setRenameTarget(null);
-    setRenameValue("");
-    setIsRenaming(false);
+    console.error("Rename failed:", err.response?.data || err.message);
   }
+
+  setRenameTarget(null);
+  setRenameValue("");
+  setIsRenaming(false);
 };
+
 
 useEffect(() => {
   // Don't call API if query is empty
@@ -435,6 +444,8 @@ useEffect(() => {
   }
 
 
+
+  
   
   
   const filterDocByTag = async (tag) => {
@@ -453,9 +464,14 @@ useEffect(() => {
   // Function to clear all tags when ✕ button is clicked
   const handleClearTags = () => {
     setActiveTags([]); // Removes all active tags
+    setShowAllTags(false);
     setViewMode("directory");
   };
 
+  const tagsLimit = 10;
+
+  const displayedTags = showAllTags ? tags : tags.slice(0, tagsLimit);
+  const hasMoreTags = tags.length > tagsLimit;
 
   return (
     <>
@@ -479,7 +495,7 @@ useEffect(() => {
            {/* Upload button */}
           <button
             onClick={() => setShowUploadModal(true)}
-            className='fixed p-4 text-gray-700 transition-all duration-300 border shadow-xl cursor-pointer right-10 bottom-8 px-7 rounded-xl dark:bg-gray-950/50 hover:shadow-sm hover:shadow-zuccini-700'>
+            className='fixed z-100 p-4 text-gray-700 transition-all duration-300 border shadow-xl cursor-pointer right-10 bottom-8 px-7 rounded-xl dark:bg-gray-950/50 hover:shadow-sm hover:shadow-zuccini-700'>
             <FontAwesomeIcon icon={faPlus} className="text-xl dark:text-gray-200" />
           </button>   
         
@@ -545,8 +561,8 @@ useEffect(() => {
         <div className={`flex flex-col flex-1 transition-all duration-300 ${showDetails ? 'mr-2' : ''}`}>      
           
           {/* Filter Tags Section */}
-          <div className="border border-neutral-300 dark:border-neutral-600 rounded-[20px] px-5 py-4 dark:bg-gray-950/50 inset-shadow-sm inset-shadow-gray-400 mb-2">
-            
+           <div className="border border-neutral-300 dark:border-neutral-600 rounded-[20px] px-5 py-4 dark:bg-gray-950/50 inset-shadow-sm inset-shadow-gray-400 mb-2">
+
             {/* Header + removable tag chip (inline using flex) */}
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <p className="text-sm font-medium text-neutral-800 dark:text-white">Filter by:</p>
@@ -559,7 +575,7 @@ useEffect(() => {
                   {tag}
                   <button
                     className="ml-3 text-sm text-gray-500 cursor-pointer hover:text-red-600"
-                    onClick={() => handleRemoveTag(tag)} // removes that tag only
+                    onClick={() => handleRemoveTag(tag)}
                   >
                     ✕
                   </button>
@@ -573,21 +589,46 @@ useEffect(() => {
                   Clear All
                 </button>
               )}
-             
             </div>
 
             {/* Filter tags buttons */}
             <div className="flex flex-wrap items-center gap-2">
-              {tags.map((tag) => (
+              {displayedTags.map((tag) => (
                 <div
                   key={tag}
                   onClick={() => filterDocByTag(tag)}
-                  className={`px-4 py-1 text-sm capitalize border rounded-full cursor-pointer 
-                    ${activeTags.includes(tag) ? "inset-shadow-sm inset-shadow-gray-400 bg-gray-300 text-zuccini-700 dark:bg-emerald-800 dark:text-gray-300" : "shadow-md dark:shadow-sm dark:shadow-zuccini-900 text-neutral-800"} 
-                    border-neutral-300 dark:border-gray-700  hover:bg-neutral-300 dark:hover:bg-emerald-800 dark:text-white transition-all duration-200`}>
+                  className={`px-4 py-1 text-sm capitalize border rounded-full cursor-pointer transition-all duration-200
+                    ${activeTags.includes(tag)
+                      ? "inset-shadow-sm inset-shadow-gray-400 bg-gray-300 text-emerald-700 dark:bg-emerald-800 dark:text-gray-300"
+                      : "shadow-md dark:shadow-sm dark:shadow-emerald-900 text-neutral-800 dark:text-white"
+                    } border-neutral-300 dark:border-gray-700 hover:bg-neutral-300 dark:hover:bg-emerald-800`}
+                >
                   {tag}
-                  </div>
+                </div>
               ))}
+
+              {hasMoreTags && (
+                <button
+                  onClick={() => setShowAllTags(!showAllTags)}
+                  className={`px-4 py-1 text-sm capitalize border rounded-full cursor-pointer transition-all duration-200 flex items-center gap-1
+                    ${showAllTags
+                      ? "inset-shadow-sm inset-shadow-gray-400 bg-gray-300 text-emerald-700 dark:bg-emerald-800 dark:text-gray-300"
+                      : "shadow-md dark:shadow-sm dark:shadow-emerald-900 text-neutral-800 dark:text-white hover:bg-neutral-300 dark:hover:bg-emerald-800"
+                    } border-neutral-300 dark:border-gray-700`}
+                >
+                  {showAllTags ? (
+                    <>
+                      Show less
+                      <FontAwesomeIcon icon={faChevronUp} className="text-16 " />
+                    </>
+                  ) : (
+                    <>
+                      +{tags.length - tagsLimit} more
+                      <FontAwesomeIcon icon={faChevronDown} className="text-16 " />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -710,7 +751,7 @@ useEffect(() => {
                       setShowDetails(false);
                       setCurrentPath([...currentPath, folder])
                     }}
-                    className="relative border text-neutral-800 border-neutral-300 dark:border-neutral-700 shadow-md rounded-[20px] px-4 py-5 flex justify-between items-center cursor-pointer hover:shadow-lg dark:hover:shadow-md dark:hover:shadow-zuccini-800 transition dark:bg-gray-950/50 dark:inset-shadow-sm dark:inset-shadow-gray-400">
+                    className="relative border text-neutral-800 border-neutral-400 dark:border-neutral-700 shadow-md rounded-[20px] px-4 py-5 flex justify-between items-center cursor-pointer hover:shadow-lg dark:hover:shadow-md dark:hover:shadow-zuccini-800 transition dark:bg-gray-950/50 dark:inset-shadow-sm dark:inset-shadow-gray-400">
                     
                     <div className="flex items-center space-x-3">
                       {/* Icon for Folder */}
@@ -831,7 +872,7 @@ useEffect(() => {
                     handlePreview(file);
                     setHighlightedFile(null);
                   }}
-                  className={`${highlightedFile === file.docID ? 'scale-101 ring-2 ring-zuccini-400/50' : 'ring-0'} relative border text-neutral-800 border-neutral-800 shadow-md rounded-[20px] px-4 py-5 flex justify-between items-center cursor-pointer hover:shadow-lg dark:hover:shadow-md dark:hover:shadow-zuccini-800 transition dark:bg-gray-950/50 dark:inset-shadow-sm dark:inset-shadow-gray-800`}
+                  className={`${highlightedFile === file.docID ? 'scale-101 ring-2 ring-zuccini-400/50' : 'ring-0'} relative border text-neutral-800 border-neutral-400 shadow-md rounded-[20px] px-4 py-5 flex justify-between items-center cursor-pointer hover:shadow-lg dark:hover:shadow-md dark:hover:shadow-zuccini-800 transition dark:bg-gray-950/50 dark:inset-shadow-sm dark:inset-shadow-gray-800`}
                 >
                   <div className="flex items-center space-x-3">
                     {/* Icon for File */}
@@ -1260,8 +1301,7 @@ useEffect(() => {
                     </p>
 
                     {/* Show tags for directory files */}
-                
-                  
+                                  
                     <h2 className="mb-2 text-lg font-medium">Tags:</h2>
                     <div className="flex flex-wrap gap-2 mb-5 ml-3">
                       {selectedFile.docTag.map((tag, index) => (
@@ -1303,22 +1343,6 @@ useEffect(() => {
                   </>
                 )}
                 
-                {/* Show tags for filtered documents */}
-                {selectedFile.docTag && selectedFile.docTag.length > 0 && (
-                  <>
-                    <h2 className="mb-2 text-lg font-medium">Tags:</h2>
-                    <div className="flex flex-wrap gap-2 mb-5 ml-3">
-                      {selectedFile.docTag.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 text-xs text-gray-700 capitalize border rounded-full border-neutral-400 dark:text-white dark:border-gray-500"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </>
-                )}
                 
               </div>
             </div>

@@ -1,6 +1,6 @@
 import requests
 import os
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, unquote
 from requests.auth import HTTPBasicAuth
 from io import BytesIO
 from werkzeug.utils import secure_filename
@@ -167,35 +167,51 @@ def preview_from_nextcloud(doc_path):
     
 
 def rename_file_nextcloud(old_path, new_path):
-    UDMS_URL = f"{NEXTCLOUD_URL}/remote.php/dav/files/{NEXTCLOUD_USER}/"
+    # Use the proper webdav base function
+    _, files_base, _ = _get_webdav_bases()
     
-    # Paths come URL-encoded from frontend, just append them
-    # If they already contain UDMS_Repository, use as-is
-    # If not, prepend it
+    # Decode paths to check structure
+    old_path_decoded = unquote(old_path) if old_path else ""
+    new_path_decoded = unquote(new_path) if new_path else ""
     
-    # Decode to check structure
-    old_path_decoded = unquote(old_path)
-    new_path_decoded = unquote(new_path)
+    # Remove leading/trailing slashes
+    old_path_decoded = old_path_decoded.strip('/')
+    new_path_decoded = new_path_decoded.strip('/')
     
     # Ensure UDMS_Repository prefix exists
-    if not old_path_decoded.startswith('UDMS_Repository'):
+    if old_path_decoded and not old_path_decoded.startswith('UDMS_Repository'):
         old_path_decoded = f"UDMS_Repository/{old_path_decoded}"
-    if not new_path_decoded.startswith('UDMS_Repository'):
+    if new_path_decoded and not new_path_decoded.startswith('UDMS_Repository'):
         new_path_decoded = f"UDMS_Repository/{new_path_decoded}"
     
-    # Re-encode properly for URL
-    old_url = UDMS_URL + '/'.join(quote(part, safe='') for part in old_path_decoded.split('/'))
-    new_url = UDMS_URL + '/'.join(quote(part, safe='') for part in new_path_decoded.split('/'))
+    # Build URLs using files_base
+    old_url = files_base + safe_path(old_path_decoded)
+    new_url = files_base + safe_path(new_path_decoded)
+    
+    # Ensure destination parent directory exists
+    new_path_parent = os.path.dirname(new_path_decoded.strip('/'))
+    if new_path_parent:
+        try:
+            ensure_directories(new_path_parent)
+        except Exception as e:
+            print(f"WARN: Could not ensure destination directory exists: {e}")
 
     print(f"Renaming in Nextcloud:")
-    print(f"  Old: {old_url}")
-    print(f"  New: {new_url}")
+    print(f"  Old path: {old_path_decoded}")
+    print(f"  New path: {new_path_decoded}")
+    print(f"  Old URL: {old_url}")
+    print(f"  New URL: {new_url}")
 
     try:
+        # MOVE request with absolute Destination URL
         response = _session.request(
             "MOVE",
             old_url,
-            headers = {"Destination": new_url},
+            headers={
+                "Destination": new_url,
+                "Overwrite": "T"  # Allow overwrite if destination exists
+            },
+            timeout=60
         )
         
         print(f"Nextcloud rename response: {response.status_code}")
@@ -206,7 +222,6 @@ def rename_file_nextcloud(old_path, new_path):
     
     except requests.exceptions.RequestException as e:
         print(f"Nextcloud rename error: {str(e)}")
-        # Don't return jsonify here - this function should return response object
         raise Exception(f"Nextcloud connection failed: {str(e)}")
 
 
