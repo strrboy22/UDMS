@@ -103,31 +103,44 @@ const handleFilePreview = useCallback(async (docName, docPath) => {
     
     setIsLoading(true);
     setError(null);
-    setDocs([]); // Clear previous documents
+    setDocs([]);
     setShowPreview(true); 
 
-    const blob = await apiGetBlob(`/api/accreditation/preview/${encodeURIComponent(docName)}`);
+    // apiGetBlob should return a Blob; if it returns JSON with error, catch it
+    let resp;
+    try {
+      resp = await apiGetBlob(`/api/accreditation/preview/${encodeURIComponent(docName)}`);
+    } catch (blobErr) {
+      console.error('Blob fetch error:', blobErr);
+      setError(`Failed to load document: ${blobErr.message || 'Network error'}`);
+      setIsLoading(false);
+      setShowPreview(false);
+      return;
+    }
 
-    // Construct the full URL
+    // Support both: direct Blob or wrapped { success: true, data: Blob }
+    let blob = null;
+    if (resp instanceof Blob) {
+      blob = resp;
+    } else if (resp && resp.data instanceof Blob) {
+      blob = resp.data;
+    } else {
+      console.error('Expected Blob, got:', resp);
+      setError('Invalid file format received from server');
+      setIsLoading(false);
+      setShowPreview(false);
+      return;
+    }
+
     const fileURL = URL.createObjectURL(blob);
 
-    // Helper function to determine file type from filename
     const getFileType = (fileName) => {
       const extension = fileName.split('.').pop()?.toLowerCase();
       const typeMap = {
         'pdf': 'pdf',
         'doc': 'doc',
         'docx': 'docx',
-        'xls': 'xls',
-        'xlsx': 'xlsx',
-        'ppt': 'ppt',
-        'pptx': 'pptx',
-        'txt': 'txt',
-        'csv': 'csv',
-        'jpg': 'jpg',
-        'jpeg': 'jpeg',
-        'png': 'png',
-        'gif': 'gif'
+        // ... rest of mappings
       };
       return typeMap[extension] || extension;
     };
@@ -138,18 +151,15 @@ const handleFilePreview = useCallback(async (docName, docPath) => {
       fileType: getFileType(docName)
     };
 
-    // Delay to ensure proper state transitions
     setTimeout(() => {
       setDocs([newDocument]);
       setShowPreview(true);
       setDocViewerKey(prev => prev + 1);
-
       setTimeout(() => {
         setIsLoading(false);
       }, 500);
     }, 100);
 
-    
   } catch(err){
     console.error('Preview error:', err);
     setError(`Failed to load document: ${err.message}`);
@@ -447,7 +457,7 @@ const handleSubareaSelect = (subarea) => {
                             onClick={()=> visibleArea(program)} 
                             className="shadow-xl hover:border-zuccini-700"
                           />                      
-                        ))} 
+                        ))}
                       </>
                   )}
                 </div>

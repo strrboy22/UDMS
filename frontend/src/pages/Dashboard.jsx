@@ -1,7 +1,7 @@
 import{faCalendarPlus, faAngleRight, faChartArea, faCalendarWeek, faGraduationCap, faBullhorn, faPlus, faGears, faHourglassHalf, faCalendarDays, faTrash} from '@fortawesome/free-solid-svg-icons'
 import {Link, Navigate, Route, useNavigate} from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { apiGet, apiPost, apiDelete, API_URL, apiPostForm } from '../utils/api_utils';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
@@ -346,12 +346,21 @@ const handleCloseDeadline = () =>{setSelectedDeadline(null); setShowDeadline(fal
 const [areaProgressList, setAreaProgressList] = useState([]) // displays the area in tasks
 const uniqueAreas = areaProgressList.filter((area, index, self) => index === self.findIndex(a => a.areaID === area.areaID))
 
+const deadLineRef = useRef(null);
+const ScrollToDeadlines = () => {
+	if (deadLineRef.current) {
+		deadLineRef.current.scrollIntoView({behavior: 'smooth'})
+	}
+}
+
+
+
 return (
 	<>	
 	{/* Dashboard links */}	
 	<section className='grid grid-rows-[auto_1fr] gap-1 mt-20 lg:mt-8 lg:grid-cols-2 lg:grid-rows-1'>   
-		<DashboardLinks icon={faGraduationCap} text="Programs" page="Programs" count={count?.programs || 0} loading={countLoading}/>            
-		<DashboardLinks icon={faCalendarDays} text="Deadlines" page="Dashboard" count={count?.deadlines || 0} loading={countLoading}/>            
+		<DashboardLinks icon={faGraduationCap} text="Programs" onClick={() => navigate(`/Programs`)} count={count?.programs || 0} loading={countLoading}/>            
+		<DashboardLinks icon={faCalendarDays} text="Deadlines" onClick={ScrollToDeadlines} count={count?.deadlines || 0} loading={countLoading}/>            
 	</section>
 			
 
@@ -502,7 +511,7 @@ return (
 			</div>
 
 			{/* Deadlines */}
-			<div className={`relative p-3 md:p-5 text-neutral-800 border dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>     
+			<div ref={deadLineRef} className={`relative p-3 md:p-5 text-neutral-800 border dark:border-gray-700 border-gray-300 rounded-3xl shadow-xl transition-all duration-500 inset-shadow-sm inset-shadow-gray-400 dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900`}>     
 			{/* Header */}
 			<div className="mb-4">
 				<h1 className="text-2xl font-semibold text-zuccini-700/80">
@@ -692,15 +701,15 @@ return (
                                 <tbody className="divide-y divide-gray-400 dark:divide-gray-800">
                                     {logs.map((log) => {
                                         const isLogin = log.action.includes('LOGGED IN') || log.action.includes('Logged in');
-                                        const isDelete = log.action.includes('DELETED') || log.action.includes('Deleted');
-                                        const isRate = log.action.includes('RATED') || log.action.includes( 'Rated');
-                                        const isCreate = log.action.includes('CREATED') || log.action.includes('Created');
-                                        const isUpload = log.action.includes('UPLOADED') || log.action.includes('Uploaded');
+                                        const isDelete = log.action.includes('DELETED') || log.action.includes('Deleted') || log.action.includes('deleted');
+                                        const isRate = log.action.includes('RATED') || log.action.includes('Rated') || log.action.includes('rated');
+                                        const isCreate = log.action.includes('CREATED') || log.action.includes('Created') || log.action.includes('created');
+                                        const isUpload = log.action.includes('UPLOADED') || log.action.includes('Uploaded') || log.action.includes('uploaded');
                                         const isLoggedOut = log.action.includes('LOGGED OUT');
-                                        const isEdit = log.action.includes('EDITED') || log.action.includes('Edited');
-                                        const isDownload = log.action.includes('DOWNLOADED') || log.action.includes('Downloaded');
-                                        const isUpdate = log.action.includes( 'UPDATED') || log.action.includes('Updated');
-                                        const isApply = log.action.includes('APPLIED') || log.action.includes('Applied');
+                                        const isEdit = log.action.includes('EDITED') || log.action.includes('Edited') || log.action.includes('edited');
+                                        const isDownload = log.action.includes('DOWNLOADED') || log.action.includes('Downloaded') ||  log.action.includes('downloaded');
+                                        const isUpdate = log.action.includes( 'UPDATED') || log.action.includes('Updated') || log.action.includes('updated');
+                                        const isApply = log.action.includes('APPLIED') || log.action.includes('Applied') || log.action.includes('applied');
 
                                         return (
                                             <tr 
@@ -914,10 +923,10 @@ return (
 	</>
 )}
 
-export const DashboardLinks = ({icon, text, page, count, loading = false}) =>{
+export const DashboardLinks = ({icon, text, onClick, count, loading = false}) =>{
 	const navigate = useNavigate()
 	return (
-		<div onClick={() => navigate(`/${page}`)} className='relative flex flex-row items-center h-[100px] p-4 m-1 bg-gradient-to-r from-green-400/90 to-teal-600/90 dark:from-green-600/80 dark:to-teal-800/80 transition-all duration-500 shadow-xl cursor-pointer text-neutral-800 border-1 border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:border-gray-800 rounded-3xl dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900'>
+		<div onClick={onClick} className='relative flex flex-row items-center h-[100px] p-4 m-1 bg-gradient-to-r from-green-400/90 to-teal-600/90 dark:from-green-600/80 dark:to-teal-800/80 transition-all duration-500 shadow-xl cursor-pointer text-neutral-800 border-1 border-neutral-300 inset-shadow-sm inset-shadow-gray-400 dark:border-gray-800 rounded-3xl dark:shadow-md dark:shadow-zuccini-900 dark:bg-gray-900'>
 			<div className='flex items-center justify-center p-2 w-12 h-12 bg-gray-200 rounded-full mr-3'><FontAwesomeIcon icon={icon} className="text-2xl text-center text-zuccini-700" /></div>
 			<h1 className="text-xl font-semibold transition-all duration-500 text-shadow-sm text-white">{text}</h1>
 			<span className="absolute text-lg transition-all duration-500 right-6 text-white">{loading ? '...' : count}</span>
