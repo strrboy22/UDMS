@@ -250,14 +250,20 @@ const Documents = () => {
   };
 
 
+  const buildFullRepoPath = (segments, fileName = "") => {
+    const relativePath = [...segments, fileName].filter(Boolean).join("/");
+    const normalized = relativePath ? `${BASE_PATH}/${relativePath}` : BASE_PATH;
+    return encodeURIComponent(normalized.replace(/\/+/g, "/"));
+  };
+
   const handlePreview = (file) => {
-    const path = buildPath(currentPath, file.name);    
-    window.open(`${API_URL}/api/documents/preview/${path}`, "_blank");
+    const encodedPath = buildFullRepoPath(currentPath, file.name);
+    window.open(`${API_URL}/api/documents/preview/${encodedPath}`, "_blank");
   }
 
   const handleDownload = (file) => {
-    const path = buildPath(currentPath, file.name); 
-    window.location.href = `${API_URL}/api/documents/download/${path}`;
+    const encodedPath = buildFullRepoPath(currentPath, file.name);
+    window.location.href = `${API_URL}/api/documents/download/${encodedPath}`;
   }
 
   const handleDelete = async (docID) => {

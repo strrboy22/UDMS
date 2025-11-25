@@ -1,6 +1,6 @@
 import requests
 import os
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, unquote
 from requests.auth import HTTPBasicAuth
 from io import BytesIO
 from werkzeug.utils import secure_filename
@@ -167,51 +167,59 @@ def preview_from_nextcloud(doc_path):
     
 
 def rename_file_nextcloud(old_path, new_path):
-    """
-    MOVE old_path -> new_path in Nextcloud. Ensure destination parent exists first.
-    """
-    # Normalize incoming paths (may be URL-encoded from frontend)
-    old_path_decoded = unquote(old_path) if old_path and '%' in old_path else (old_path or "")
-    new_path_decoded = unquote(new_path) if new_path and '%' in new_path else (new_path or "")
-
-    # Ensure UDMS_Repository prefix
+    # Use the proper webdav base function
+    _, files_base, _ = _get_webdav_bases()
+    
+    # Decode paths to check structure
+    old_path_decoded = unquote(old_path) if old_path else ""
+    new_path_decoded = unquote(new_path) if new_path else ""
+    
+    # Remove leading/trailing slashes
+    old_path_decoded = old_path_decoded.strip('/')
+    new_path_decoded = new_path_decoded.strip('/')
+    
+    # Ensure UDMS_Repository prefix exists
     if old_path_decoded and not old_path_decoded.startswith('UDMS_Repository'):
-        old_path_decoded = f"UDMS_Repository/{old_path_decoded.lstrip('/')}"
+        old_path_decoded = f"UDMS_Repository/{old_path_decoded}"
     if new_path_decoded and not new_path_decoded.startswith('UDMS_Repository'):
-        new_path_decoded = f"UDMS_Repository/{new_path_decoded.lstrip('/')}"
-
-    # Ensure parent directory of destination exists in Nextcloud
-    dest_parent = os.path.dirname(new_path_decoded).strip('/')
-    if dest_parent:
-        # ensure_directories expects a path like "UDMS_Repository/Parent/Child"
-        ensure_directories(dest_parent)
-
-    # Build full WebDAV URLs (properly encoded)
-    old_url = build_nextcloud_url(old_path_decoded)
-    new_url = build_nextcloud_url(new_path_decoded)
+        new_path_decoded = f"UDMS_Repository/{new_path_decoded}"
+    
+    # Build URLs using files_base
+    old_url = files_base + safe_path(old_path_decoded)
+    new_url = files_base + safe_path(new_path_decoded)
+    
+    # Ensure destination parent directory exists
+    new_path_parent = os.path.dirname(new_path_decoded.strip('/'))
+    if new_path_parent:
+        try:
+            ensure_directories(new_path_parent)
+        except Exception as e:
+            print(f"WARN: Could not ensure destination directory exists: {e}")
 
     print(f"Renaming in Nextcloud:")
-    print(f"  Old: {old_url}")
-    print(f"  New: {new_url}")
+    print(f"  Old path: {old_path_decoded}")
+    print(f"  New path: {new_path_decoded}")
+    print(f"  Old URL: {old_url}")
+    print(f"  New URL: {new_url}")
 
     try:
-        # Overwrite T to allow replace if needed
+        # MOVE request with absolute Destination URL
         response = _session.request(
             "MOVE",
             old_url,
             headers={
                 "Destination": new_url,
-                "Overwrite": "T"
+                "Overwrite": "T"  # Allow overwrite if destination exists
             },
-            timeout=120
+            timeout=60
         )
-
+        
         print(f"Nextcloud rename response: {response.status_code}")
         if response.status_code not in (200, 201, 204, 207):
-            print(f"Response body: {getattr(response, 'text', '')}")
-
-        return response
-
+            print(f"Response body: {response.text}")
+        
+        return response  
+    
     except requests.exceptions.RequestException as e:
         print(f"Nextcloud rename error: {str(e)}")
         raise Exception(f"Nextcloud connection failed: {str(e)}")
@@ -421,25 +429,12 @@ def download_file_nextcloud(file_path):
 #idk fk
 def upload_to_nextcloud_chunked(file, nextcloud_final_path, empID=None, redis_client=None):
     print("DEBUG: Entered upload_to_nextcloud_chunked")
-    # Fail fast if Nextcloud configuration is missing
-    if not NEXTCLOUD_URL or not NEXTCLOUD_USER or not NEXTCLOUD_PASSWORD:
-        msg = (
-            "Nextcloud configuration missing. Ensure NEXTCLOUD_URL, "
-            "NEXTCLOUD_USER and NEXTCLOUD_PASSWORD are set in the environment."
-        )
-        print(f"ERROR: {msg}")
-        raise Exception(msg)
-
     username = NEXTCLOUD_USER
     print(f"DEBUG: User is {empID}, NEXTCLOUD_USER is {NEXTCLOUD_USER}")
     # Derive correct WebDAV base: scheme://host/remote.php/dav/
     # This avoids duplicating remote.php if NEXTCLOUD_URL already contains paths
-    try:
-        parsed = urlparse(NEXTCLOUD_URL)
-        origin = f"{parsed.scheme}://{parsed.netloc}"
-    except Exception as e:
-        print(f"ERROR parsing NEXTCLOUD_URL: {e}")
-        raise Exception(f"Invalid NEXTCLOUD_URL: {e}")
+    parsed = urlparse(NEXTCLOUD_URL)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
     webdav_base = origin.rstrip('/') + '/remote.php/dav/'
     upload_id = str(uuid.uuid4().hex)
     chunk_size = 5 * 1024 * 1024  # 5MB

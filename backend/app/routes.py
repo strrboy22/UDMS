@@ -3063,15 +3063,24 @@ def register_routes(app):
     def preview_file_documents(file_path):
         if not file_path:
             return {"error": "File path required"}, 400
-        return preview_file_nextcloud(file_path)
+
+        decoded_path = unquote(file_path).strip('/')
+        if decoded_path and not decoded_path.startswith('UDMS_Repository'):
+            decoded_path = f"UDMS_Repository/{decoded_path}"
+
+        return preview_file_nextcloud(decoded_path)
 
     
     @app.route('/api/documents/download/<path:file_path>', methods=["GET"])
     @jwt_required()
     def download_file_documents(file_path):
+        decoded_path = unquote(file_path).strip('/')
+        if decoded_path and not decoded_path.startswith('UDMS_Repository'):
+            decoded_path = f"UDMS_Repository/{decoded_path}"
+
         # Audit downloaded file
         user = Employee.query.filter_by(employeeID=get_jwt_identity()).first()
-        file_name = file_path.split("/")[-1]
+        file_name = decoded_path.split("/")[-1]
         new_log = AuditLog(
             employeeID = user.employeeID,
             action = f"{user.lName}, {user.fName} {user.suffix} Downloaded {file_name}"
@@ -3079,7 +3088,7 @@ def register_routes(app):
         db.session.add(new_log)
         db.session.commit()
 
-        return download_file_nextcloud(file_path)
+        return download_file_nextcloud(decoded_path)
     
     
     @app.route('/api/documents/delete_file/<int:docID>', methods=["DELETE"])
@@ -3098,11 +3107,8 @@ def register_routes(app):
                     'message': 'Document not found.'
                 }), 404
 
-            file_path = doc.docPath
+            file_path = (doc.docPath or "").strip('/')
             print(f"Deleting docID = {docID}, path = {file_path}")
-            if file_path.startswith('UDMS_Repository'):
-                file_path = file_path.replace("UDMS_Repository", "", 1)
-
             # Delete from Nextcloud
             response = delete_from_nextcloud(file_path)
 
@@ -3158,10 +3164,13 @@ def register_routes(app):
                     }), 200
                 
                 display_name = unquote(new_path)
+                new_filename = os.path.basename(display_name)
                 # Update DB only if it's a file
                 doc = Document.query.filter_by(docPath=old_path).first()
                 if doc:
                     doc.docPath = display_name
+                    if new_filename:
+                        doc.docName = new_filename
                     user = Employee.query.filter_by(employeeID=get_jwt_identity()).first()
                     # Audit rename path
                     new_log = AuditLog(
@@ -3170,8 +3179,7 @@ def register_routes(app):
                     )
                     db.session.add(new_log)
                     db.session.commit()
-                else:                 
-                    return jsonify({'success': True, 'message': 'File renamed successfully.'}), 200
+                return jsonify({'success': True, 'message': 'File renamed successfully.'}), 200
                 
             else:
                 return jsonify({
